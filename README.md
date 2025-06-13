@@ -465,7 +465,7 @@ public class ZombieSpawn : MonoBehaviour
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-public class Scene : MonoBehaviour
+public class SceneManagement : MonoBehaviour
 {
     // ฟังก์ชันสำหรับเริ่มฉากใหม่ (เล่นซ้ำ)
     public void playAgain()
