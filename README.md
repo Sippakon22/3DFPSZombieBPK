@@ -302,3 +302,175 @@ public class Enemy : MonoBehaviour
     }
 }
 ```
+
+
+# PlayerManager.cs
+สคริปต์ควบคุมเลือด การตายและสถานะอื่นๆของผู้เล่น
+```csharp
+using TMPro;
+using UnityEngine;
+
+public class PlayerManager : MonoBehaviour
+{
+    [Header("Health Settings")] // กลุ่มสำหรับการตั้งค่าพลังชีวิตของผู้เล่น
+    public int maxHealth = 100; // พลังชีวิตสูงสุดของผู้เล่น
+    private int currentHealth;  // พลังชีวิตปัจจุบันของผู้เล่น
+
+    [Header("Game Over")] // กลุ่มสำหรับการจัดการ UI เมื่อตัวละครตาย
+    public GameObject gameOverUI; // อ้างอิงถึง GameObject ของหน้าจอ Game Over
+
+    private bool isDead = false; // ใช้ตรวจสอบว่าผู้เล่นตายแล้วหรือยัง
+
+    [Header("Kill")] // กลุ่มสำหรับการแสดงผลและเก็บข้อมูลจำนวนศัตรูที่ฆ่าได้
+    public TextMeshProUGUI killUI; // UI ที่ใช้แสดงจำนวนศัตรูที่ผู้เล่นฆ่าได้
+    private int kill; // ตัวแปรเก็บจำนวนศัตรูที่ฆ่าได้
+
+    void Start()
+    {
+        currentHealth = maxHealth; // เริ่มเกมด้วยพลังชีวิตเต็ม
+
+        if (gameOverUI != null)
+        {
+            gameOverUI.SetActive(false); // ซ่อน UI Game Over ตอนเริ่มเกม
+        }
+    }
+
+    public void TakeDamage(int damage)
+    {
+        if (isDead) return; // ถ้าผู้เล่นตายแล้ว จะไม่รับดาเมจอีก
+
+        currentHealth -= damage; // ลดพลังชีวิตตามค่าดาเมจ
+        currentHealth = Mathf.Clamp(currentHealth, 0, maxHealth); // จำกัดค่าพลังชีวิตไม่ให้ต่ำกว่า 0 หรือเกิน max
+
+        Debug.Log("Player took damage. Current HP: " + currentHealth); // แสดงข้อความใน Console ว่าผู้เล่นโดนโจมตี
+
+        if (currentHealth <= 0)
+        {
+            Die(); // ถ้าพลังชีวิตหมด เรียกฟังก์ชัน Die()
+        }
+    }
+
+    void Die()
+    {
+        isDead = true; // ตั้งสถานะว่าผู้เล่นตายแล้ว
+
+        Debug.Log("Player Died!"); // แสดงข้อความใน Console ว่าผู้เล่นตายแล้ว
+
+        if (gameOverUI != null)
+        {
+            gameOverUI.SetActive(true); // แสดงหน้าจอ Game Over
+        }
+
+        Cursor.lockState = CursorLockMode.None; // ปลดล็อคเมาส์
+        Cursor.visible = true; // แสดงเมาส์
+
+        Camera cam = GetComponentInChildren<Camera>(); // ค้นหา Component กล้องที่เป็นลูกของ Player
+        if (cam != null)
+        {
+            cam.transform.parent = null; // ถอดกล้องออกจาก Player เพื่อไม่ให้ถูกทำลายตาม
+        }
+
+        Destroy(gameObject); // ลบ GameObject ผู้เล่นออกจากฉาก
+    }
+
+    public void AddScore(int score)
+    {
+        kill += score; // เพิ่มจำนวนศัตรูที่ฆ่าได้
+        killUI.text = "Kill: " + kill; // อัปเดตข้อความใน UI
+    }
+
+    void OnGUI()
+    {
+        // แสดงพลังชีวิตผู้เล่นที่มุมบนซ้ายของหน้าจอ
+        GUI.Label(new Rect(10, 50, 200, 20), $"Player HP: {currentHealth} / {maxHealth}");
+    }
+}
+```
+
+# ZombieSpawn.cs
+สคริปต์สุ่มการเกิดซอมบี้
+```csharp
+using UnityEngine;
+using System.Collections;
+
+public class ZombieSpawn : MonoBehaviour
+{
+    [Header("Zombie Prefab")]
+    // ตัว prefab ของซอมบี้ที่จะถูกสร้าง
+    public GameObject zombiePrefab;
+
+    [Header("Spawn Area")]
+    // ขนาดพื้นที่สำหรับสุ่มเกิดซอมบี้ (กว้าง x สูง x ยาว)
+    public Vector3 spawnAreaSize = new Vector3(20f, 0f, 20f);
+
+    [Header("Spawn Settings")]
+    // เวลาที่สุ่มรอระหว่างการเกิดซอมบี้แต่ละครั้ง (หน่วย: วินาที)
+    public float minSpawnDelay = 1f;
+    public float maxSpawnDelay = 5f;
+
+    // จำนวนซอมบี้ที่จะเกิดสุ่มในแต่ละครั้ง (ตั้งแต่ขั้นต่ำ ถึง ขั้นสูงสุด)
+    public int minZombiesPerSpawn = 1;
+    public int maxZombiesPerSpawn = 3;
+
+    void Start()
+    {
+        // เริ่ม coroutine เพื่อสุ่มเกิดซอมบี้แบบต่อเนื่อง
+        StartCoroutine(SpawnZombiesRandomly());
+    }
+
+    // Coroutine สำหรับสุ่มระยะเวลารอและจำนวนซอมบี้ในแต่ละรอบ
+    IEnumerator SpawnZombiesRandomly()
+    {
+        while (true)
+        {
+            // สุ่มเวลารอระหว่างการเกิดซอมบี้
+            float waitTime = Random.Range(minSpawnDelay, maxSpawnDelay);
+            yield return new WaitForSeconds(waitTime);
+
+            // สุ่มจำนวนซอมบี้ที่จะเกิดในรอบนี้
+            int zombieCount = Random.Range(minZombiesPerSpawn, maxZombiesPerSpawn + 1);
+            for (int i = 0; i < zombieCount; i++)
+            {
+                SpawnZombie();
+            }
+        }
+    }
+
+    // ฟังก์ชันสำหรับสุ่มตำแหน่งและสร้างซอมบี้
+    void SpawnZombie()
+    {
+        Vector3 randomPos = transform.position + new Vector3(
+            Random.Range(-spawnAreaSize.x / 2, spawnAreaSize.x / 2),  // สุ่มตำแหน่งในแกน X
+            0,                                                      // ตำแหน่งแกน Y คงที่
+            Random.Range(-spawnAreaSize.z / 2, spawnAreaSize.z / 2)   // สุ่มตำแหน่งในแกน Z
+        );
+
+        // สร้างซอมบี้ที่ตำแหน่งสุ่มและใช้การหมุนเริ่มต้น
+        Instantiate(zombiePrefab, randomPos, Quaternion.identity);
+    }
+
+    // ฟังก์ชันสำหรับแสดงกรอบพื้นที่เกิดซอมบี้ใน Scene view
+    void OnDrawGizmosSelected()
+    {
+        Gizmos.color = Color.red;
+        Gizmos.DrawWireCube(transform.position, spawnAreaSize);
+    }
+}
+```
+
+
+# SceneManagement.cs
+สคริปต์ควบคุมการเปลี่ยนด่าน การเริ่มเกมใหม่
+```csharp
+using UnityEngine;
+using UnityEngine.SceneManagement;
+
+public class Scene : MonoBehaviour
+{
+    // ฟังก์ชันสำหรับเริ่มฉากใหม่ (เล่นซ้ำ)
+    public void playAgain()
+    {
+        SceneManager.LoadScene(0); // โหลดฉากที่มี index เป็น 0 จาก Build Settings
+    }
+}
+```
